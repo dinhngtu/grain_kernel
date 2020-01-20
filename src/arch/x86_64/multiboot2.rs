@@ -141,7 +141,7 @@ impl<'a> Iterator for BootInfoReader<'a> {
                 _ => Some(BootInfoTag::Unknown),
             };
             self.offset += tag_base.size as usize;
-            self.offset += MBI2_TAG_ALIGN - self.offset % MBI2_TAG_ALIGN;
+            self.offset += (MBI2_TAG_ALIGN - self.offset % MBI2_TAG_ALIGN) % MBI2_TAG_ALIGN;
             tag
         } else {
             panic!("reached end of mbi2");
