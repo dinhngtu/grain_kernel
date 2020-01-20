@@ -1,3 +1,4 @@
 pub mod panic;
-pub mod print;
+pub mod serial;
 pub mod boot;
+pub mod multiboot2;

@@ -8,10 +8,15 @@ assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
     build/arch/$(arch)/%.o, $(assembly_source_files))
 
+QEMU ?= qemu-system-x86_64
+ifeq ($(DEBUG), 1)
+	QEMU_FLAGS += -S -gdb tcp::9000
+endif
+
 target ?= $(arch)-grain
 rust_os := target/$(target)/debug/libgrain_kernel.a
 
-.PHONY: all clean run iso kernel
+.PHONY: all clean run run-wsl iso kernel
 
 all: $(iso)
 
@@ -20,7 +25,11 @@ clean:
 	rm -rf target
 
 run: $(iso)
-	qemu-system-x86_64 -cdrom $(iso)
+	$(QEMU) -cdrom $(iso) -nographic $(QEMU_FLAGS)
+
+run-wsl: QEMU="/mnt/c/Program Files/qemu/qemu-system-x86_64.exe"
+run-wsl: $(iso)
+	$(QEMU) -accel whpx -cdrom $(iso) -nographic $(QEMU_FLAGS)
 
 iso: $(iso)
 
