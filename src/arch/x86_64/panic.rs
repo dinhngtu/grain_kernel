@@ -5,7 +5,7 @@ use core::panic::PanicInfo;
 pub fn panic(info: &PanicInfo) -> ! {
     let mut com1 = unsafe { SerialPort::create(SER0) };
     {
-        writeln!(com1, "Panic: {}", info);
+        writeln!(com1, "Panic: {}", info).unwrap();
     }
     loop {
         unsafe {

@@ -11,7 +11,7 @@ use core::fmt::Write;
 pub fn start() -> ! {
     let mut com1 = unsafe { SerialPort::create(SER0) };
     {
-        writeln!(com1, "hello world");
+        writeln!(com1, "hello world").unwrap();
     }
-    panic!("test panic");
+    panic!("nothing to do, dying");
 }
