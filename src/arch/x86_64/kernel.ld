@@ -1,5 +1,4 @@
-
-ENTRY(multiboot2_start)
+ENTRY(multiboot2_i386_start)
 
 kernel_stack_size = 1M;
 
