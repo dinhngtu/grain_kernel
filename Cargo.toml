@@ -7,6 +7,9 @@ edition = "2018"
 [lib]
 crate-type = ["staticlib"]
 
-#[dependencies.lazy_static]
-#version = "^1.4.0"
-#features = ["spin_no_std"]
+[dependencies]
+spin = "^0.5.2"
+
+[dependencies.lazy_static]
+version = "^1.4.0"
+features = ["spin_no_std"]

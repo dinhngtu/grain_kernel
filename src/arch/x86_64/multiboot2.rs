@@ -1,4 +1,4 @@
-use crate::arch::serial::{SerialPort, SER0};
+use crate::arch::serial::COM1;
 use core::convert::From;
 use core::ffi::c_void;
 use core::fmt::Write;
@@ -82,16 +82,16 @@ const MBI2_TAG_BASE_LEN: usize = size_of::<BootInfoTagBase>();
 
 impl<'a> From<*const c_void> for BootInfoReader<'a> {
     fn from(ptr: *const c_void) -> BootInfoReader<'a> {
-        let mut com1 = unsafe { SerialPort::init(SER0) };
         let header = unsafe { ptr.cast::<BootInfoHeader>().as_ref() }.unwrap();
         if (header.total_size as usize) < MBI2_HEADER_LEN {
             panic!("invalid mbi2 header size");
         }
         unsafe {
             writeln!(
-                com1,
+                *COM1.lock(),
                 "header total_size {} reserved {}",
-                header.total_size, header._reserved
+                header.total_size,
+                header._reserved
             )
             .unwrap();
         }
@@ -106,9 +106,8 @@ impl<'a> From<*const c_void> for BootInfoReader<'a> {
 impl<'a> Iterator for BootInfoReader<'a> {
     type Item = BootInfoTag<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        let mut com1 = unsafe { SerialPort::init(SER0) };
         {
-            writeln!(com1, "offset {}", self.offset).unwrap();
+            writeln!(*COM1.lock(), "offset {}", self.offset).unwrap();
         }
         if self.offset < self.buffer.len() {
             // BootInfoTagBase *tag_base = self.buffer + offset
@@ -121,9 +120,10 @@ impl<'a> Iterator for BootInfoReader<'a> {
                 .unwrap();
             unsafe {
                 writeln!(
-                    com1,
+                    *COM1.lock(),
                     "tag type {} size {}",
-                    tag_base.tag_type as u32, tag_base.size
+                    tag_base.tag_type as u32,
+                    tag_base.size
                 )
                 .unwrap();
             }

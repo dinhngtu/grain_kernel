@@ -1,12 +1,9 @@
-use crate::arch::serial::{SerialPort, SER0};
+use crate::arch::serial::COM1;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
 pub fn panic(info: &PanicInfo) -> ! {
-    let mut com1 = unsafe { SerialPort::create(SER0) };
-    {
-        writeln!(com1, "Panic: {}", info).unwrap();
-    }
+    writeln!(*COM1.lock(), "Panic: {}", info).unwrap();
     loop {
         unsafe {
             asm!(r"

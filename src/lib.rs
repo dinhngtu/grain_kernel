@@ -2,16 +2,16 @@
 #![feature(asm)]
 #![feature(never_type)]
 
+#[macro_use]
+extern crate lazy_static;
+
 mod arch;
 mod panic;
 
-use crate::arch::serial::{SerialPort, SER0};
+use crate::arch::serial::COM1;
 use core::fmt::Write;
 
 pub fn start() -> ! {
-    let mut com1 = unsafe { SerialPort::create(SER0) };
-    {
-        writeln!(com1, "hello world").unwrap();
-    }
+    writeln!(*COM1.lock(), "hello world").unwrap();
     panic!("nothing to do, dying");
 }

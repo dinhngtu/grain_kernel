@@ -1,4 +1,5 @@
 use core::fmt::Write;
+use spin;
 
 unsafe fn outb(port: u16, val: u8) {
     asm!("out dx, al" :: "{al}"(val), "{dx}"(port) :: "intel","volatile");
@@ -10,7 +11,7 @@ unsafe fn inb(port: u16) -> u8 {
     return val;
 }
 
-pub const SER0: u16 = 0x3f8;
+const SER0: u16 = 0x3f8;
 
 pub struct SerialPort {
     io_port: u16,
@@ -27,10 +28,6 @@ impl SerialPort {
         outb(port + 4, 0x0B);
         SerialPort { io_port: port }
     }
-
-    pub unsafe fn create(port: u16) -> Self {
-        SerialPort { io_port: port }
-    }
 }
 
 impl Write for SerialPort {
@@ -44,4 +41,11 @@ impl Write for SerialPort {
 
         Ok(())
     }
+}
+
+unsafe impl Sync for SerialPort {}
+
+lazy_static! {
+    pub static ref COM1: spin::Mutex<SerialPort> =
+        spin::Mutex::new(unsafe { SerialPort::init(SER0) });
 }
