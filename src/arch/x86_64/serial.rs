@@ -43,8 +43,6 @@ impl Write for SerialPort {
     }
 }
 
-unsafe impl Sync for SerialPort {}
-
 lazy_static! {
     pub static ref COM1: spin::Mutex<SerialPort> =
         spin::Mutex::new(unsafe { SerialPort::init(SER0) });

@@ -1,6 +1,5 @@
 use crate::arch::multiboot2::*;
 use crate::arch::serial::COM1;
-use core::ffi::c_void;
 use core::fmt::Write;
 
 fn memory_type(num: u32) -> &'static str {
@@ -14,7 +13,7 @@ fn memory_type(num: u32) -> &'static str {
 }
 
 #[no_mangle]
-pub extern "sysv64" fn x86_64_start(ptr: *const c_void) -> ! {
+pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
     for tag in BootInfoReader::from(ptr) {
         match tag {
             BootInfoTag::Cmdline(s) => writeln!(*COM1.lock(), "Command line: {}", s).unwrap(),

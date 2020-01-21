@@ -1,6 +1,6 @@
 use crate::arch::serial::COM1;
-use core::convert::{From, TryInto};
-use core::ffi::c_void;
+use crate::util::*;
+use core::convert::From;
 use core::fmt::Write;
 use core::mem::size_of;
 
@@ -40,7 +40,7 @@ struct BootInfoHeader {
 }
 
 #[repr(C)]
-struct BootInfoTagBase {
+struct BootInfoTagHeader {
     tag_type: u32,
     size: u32,
 }
@@ -59,6 +59,12 @@ pub enum MemoryMapType {
     ACPI = 3,
     HibernationReserved = 4,
     BadMemory = 5,
+}
+
+#[repr(C)]
+struct MemoryMapHeader {
+    entry_size: u32,
+    entry_version: u32,
 }
 
 #[repr(C)]
@@ -96,15 +102,11 @@ pub enum BootInfoTag<'a> {
 }
 
 const MBI2_TAG_ALIGN: usize = 8;
-const MBI2_HEADER_LEN: usize = size_of::<BootInfoHeader>();
-const MBI2_TAG_BASE_LEN: usize = size_of::<BootInfoTagBase>();
 
-impl<'a> From<*const c_void> for BootInfoReader<'a> {
-    fn from(ptr: *const c_void) -> BootInfoReader<'a> {
+impl<'a> From<*const u8> for BootInfoReader<'a> {
+    fn from(ptr: *const u8) -> BootInfoReader<'a> {
         let header = unsafe { ptr.cast::<BootInfoHeader>().as_ref() }.unwrap();
-        if (header.total_size as usize) < MBI2_HEADER_LEN {
-            panic!("invalid mbi2 header size");
-        }
+        assert!((header.total_size as usize) >= size_of::<BootInfoHeader>());
         writeln!(
             *COM1.lock(),
             "header total_size {} reserved {}",
@@ -115,88 +117,61 @@ impl<'a> From<*const c_void> for BootInfoReader<'a> {
         let total_buffer =
             unsafe { core::slice::from_raw_parts(ptr.cast::<u8>(), header.total_size as usize) };
         BootInfoReader {
-            buffer: total_buffer.get(MBI2_HEADER_LEN..).unwrap(),
+            buffer: total_buffer.get(size_of::<BootInfoHeader>()..).unwrap(),
             offset: 0,
         }
-    }
-}
-
-fn from_ne_bytes(buf: &[u8]) -> Option<u32> {
-    if buf.len() != 4 {
-        return None;
-    }
-    match TryInto::<[u8; 4]>::try_into(buf) {
-        Ok(bytes) => Some(u32::from_ne_bytes(bytes)),
-        _ => None,
     }
 }
 
 impl<'a> Iterator for BootInfoReader<'a> {
     type Item = BootInfoTag<'a>;
     fn next(&mut self) -> Option<Self::Item> {
-        {
-            writeln!(*COM1.lock(), "offset {}", self.offset).unwrap();
-        }
-        if self.offset < self.buffer.len() {
-            // BootInfoTagBase *tag_base = self.buffer + offset
-            let tag_base: &BootInfoTagBase = self
-                .buffer
-                .get(self.offset..self.offset + MBI2_TAG_BASE_LEN)
-                .map(|x| x.as_ptr())
-                .map(|x| x.cast::<BootInfoTagBase>())
-                .and_then(|x| unsafe { x.as_ref() })
-                .unwrap();
-            {
+        writeln!(*COM1.lock(), "offset {}", self.offset).unwrap();
+
+        let tag_begin = self.buffer.split_at(self.offset).1;
+        // offset from after tag header
+        let tag_offset = size_of::<BootInfoTagHeader>();
+        let tag_header: &BootInfoTagHeader = tag_begin
+            .get(..tag_offset)
+            .and_then(|x| unsafe { from_bytes(x) })
+            .unwrap();
+        let tag_size = tag_header.size as usize;
+        writeln!(
+            *COM1.lock(),
+            "tag type {} size {}",
+            tag_header.tag_type,
+            tag_size
+        )
+        .unwrap();
+
+        let tag_data = tag_begin.get(tag_offset..tag_size).unwrap();
+        let tag = match tag_header.tag_type {
+            x if x == BootInfoTagType::Cmdline as u32 => {
+                let cmdline = core::str::from_utf8(tag_data).unwrap();
+                Some(BootInfoTag::Cmdline(cmdline))
+            }
+            x if x == BootInfoTagType::Mmap as u32 => {
+                let (mmap_head, maps_raw) = tag_data.split_at(8);
+                let mmap_base: &MemoryMapHeader = unsafe { from_bytes(mmap_head).unwrap() };
                 writeln!(
                     *COM1.lock(),
-                    "tag type {} size {}",
-                    tag_base.tag_type as u32,
-                    tag_base.size
+                    "memory map size {} version {}",
+                    mmap_base.entry_size,
+                    mmap_base.entry_version
                 )
                 .unwrap();
+                assert_eq!(mmap_base.entry_size, 24);
+                assert_eq!(mmap_base.entry_version, 0);
+                assert_eq!(maps_raw.len() % (mmap_base.entry_size as usize), 0);
+                let maps: &[MemoryMapEntry] = unsafe { slice_from_bytes(maps_raw).unwrap() };
+                Some(BootInfoTag::Mmap(maps))
             }
-            // the part after the standard tag header (type + size)
-            let tag_data = self
-                .buffer
-                .get((self.offset + MBI2_TAG_BASE_LEN)..(self.offset + tag_base.size as usize))
-                .unwrap();
-            let tag = match tag_base.tag_type {
-                x if x == BootInfoTagType::Cmdline as u32 => {
-                    let cmdline = core::str::from_utf8(tag_data).unwrap();
-                    Some(BootInfoTag::Cmdline(cmdline))
-                }
-                x if x == BootInfoTagType::Mmap as u32 => {
-                    let entry_size: u32 = tag_data.get(0..4).and_then(from_ne_bytes).unwrap();
-                    let entry_version: u32 = tag_data.get(4..8).and_then(from_ne_bytes).unwrap();
-                    writeln!(
-                        *COM1.lock(),
-                        "memory map size {} version {}",
-                        entry_size,
-                        entry_version
-                    )
-                    .unwrap();
-                    if entry_size != 24 || entry_version != 0 {
-                        panic!("unsupported memory map version");
-                    }
-                    if (tag_data.len() - 8) % (entry_size as usize) != 0 {
-                        panic!("invalid memory map count");
-                    }
-                    let maps = unsafe {
-                        core::slice::from_raw_parts(
-                            tag_data.get(8..)?.as_ptr().cast::<MemoryMapEntry>(),
-                            (tag_data.len() - 8) / (entry_size as usize),
-                        )
-                    };
-                    Some(BootInfoTag::Mmap(maps))
-                }
-                x if x == BootInfoTagType::End as u32 => None,
-                _ => Some(BootInfoTag::Unknown),
-            };
-            self.offset += tag_base.size as usize;
-            self.offset += (MBI2_TAG_ALIGN - self.offset % MBI2_TAG_ALIGN) % MBI2_TAG_ALIGN;
-            tag
-        } else {
-            panic!("reached end of mbi2");
-        }
+            x if x == BootInfoTagType::End as u32 => None,
+            _ => Some(BootInfoTag::Unknown),
+        };
+
+        self.offset += tag_size;
+        self.offset += (MBI2_TAG_ALIGN - self.offset % MBI2_TAG_ALIGN) % MBI2_TAG_ALIGN;
+        tag
     }
 }
