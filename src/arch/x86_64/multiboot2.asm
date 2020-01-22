@@ -4,7 +4,7 @@ global multiboot2_i386_start
 extern x86_64_start
 extern kernel_stack_top
 
-section .boot
+section .boot.text progbits alloc exec nowrite align=16
 bits 32
 multiboot2_i386_start:
 
@@ -117,8 +117,8 @@ multiboot2_i386_start:
     lidt [noidt]  ; causes a triple fault
     int 3
 
-section .bss
-align 4096
+section .boot.bss nobits alloc noexec write align=4
+alignb 4096
 pml4:
     resb 4096
 pdpt:
@@ -126,7 +126,7 @@ pdpt:
 multiboot2_info:
     resq 1
 
-section .rodata
+section .boot.rodata progbits alloc noexec nowrite align=4
 noidt:
     dw 0
     dd 0

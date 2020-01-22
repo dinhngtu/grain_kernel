@@ -7,6 +7,7 @@ section .multiboot2
 ;12     , u32  , checksum      , required
 ;16-XX  , tags , required
 
+align 8
 mb2_header_start:
     dd 0xe85250d6
     dd 0 ; protected mode code grub will automatocally do the transition from 16bits to 32bits/A20 line
@@ -20,17 +21,7 @@ mb2_header_start:
 ;u32     | size              |
 ;        +-------------------+
 
-; we ignore unusable tags from now
-
-    ;dw 7  ; efi services tag
-    ;dw 0
-    ;dd 8
-
-    ;dw 9  ; efi amd64 tag
-    ;dw 0
-    ;dd 12
-    ;dd 0  ; addr = 0
-
+    align 8
 ; required, grub failed to load if end tag not present
     dw 0  ; end tag
     dw 0
