@@ -5,7 +5,8 @@ kernel_stack_size = 1M;
 SECTIONS {
 
     /* somehow needed for grub to recognize the multiboot header */
-    . = 2M + SIZEOF_HEADERS;
+    /* . = 2M + SIZEOF_HEADERS; */
+    . = 1M; /* load the kernel below 1M of memory to preserve vga stuff */
 
     .boot : {
         /* ensure that the multiboot header is at the beginning */
