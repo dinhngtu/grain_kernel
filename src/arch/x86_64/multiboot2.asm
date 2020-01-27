@@ -85,17 +85,14 @@ multiboot2_i386_start:
 .setup_lm:
     lea edi, [pml4]
     mov cr3, edi
-    ; enable PAE
+    ; configure CR4
     mov eax, cr4
-    or eax, 1 << 5  ; PAE
+    or eax, 0x30  ; CR4.PSE, CR4.PAE
     mov cr4, eax
-
-;https://en.wikipedia.org/wiki/Control_register#EFER
-
-    ; enable LM
+    ; configure EFER
     mov ecx, 0xc0000080  ; EFER
     rdmsr
-    or eax, 1 << 8  ; EFER.LME
+    or eax, 0x900  ; EFER.LME, EFER.NXE
     wrmsr
     ; enable PG
     mov eax, cr0
@@ -109,6 +106,7 @@ multiboot2_i386_start:
     ; set up 64-bit GDT to enable 64-bit mode
     mov edi, [multiboot2_info]
     lea esp, [kernel_stack_top]
+    lea ebp, [kernel_stack_top]
     push .die
     lgdt [gdt64.ptr]
     jmp gdt64.code:x86_64_start
