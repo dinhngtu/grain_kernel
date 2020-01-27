@@ -4,8 +4,8 @@ iso := build/os-$(arch).iso
 
 linker_script := src/arch/$(arch)/kernel.ld
 grub_cfg := src/arch/$(arch)/grub.cfg
-assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
-assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
+assembly_source_files := $(wildcard src/arch/$(arch)/asm/*.asm)
+assembly_object_files := $(patsubst src/arch/$(arch)/asm/%.asm, \
     build/arch/$(arch)/%.o, $(assembly_source_files))
 
 QEMU ?= qemu-system-x86_64
@@ -49,6 +49,6 @@ cargo:
 	cargo xbuild --target ./$(target).json
 
 # compile assembly files
-build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm
+build/arch/$(arch)/%.o: src/arch/$(arch)/asm/%.asm
 	mkdir -p $(shell dirname $@)
 	nasm -g -felf64 $< -o $@
