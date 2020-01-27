@@ -12,8 +12,23 @@ fn memory_type(num: u32) -> &'static str {
     }
 }
 
+fn print_rip(ptr: *const u8) {
+    let mut rip: usize;
+    unsafe {
+        asm!("lea $0, [rip+0]" : "=r"(rip) ::: "intel","volatile");
+    }
+    writeln!(
+        *COM1.lock(),
+        "Hello from {:#x}, mbi={:#x}",
+        rip,
+        ptr as usize
+    )
+    .unwrap();
+}
+
 #[no_mangle]
 pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
+    print_rip(ptr);
     for tag in BootInfoReader::from(ptr) {
         match tag {
             BootInfoTag::Cmdline(s) => writeln!(*COM1.lock(), "Command line: {}", s).unwrap(),

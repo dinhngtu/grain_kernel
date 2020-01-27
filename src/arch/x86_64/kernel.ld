@@ -1,6 +1,10 @@
 ENTRY(multiboot2_i386_start)
 
-kernel_stack_size = 1M;
+kernel_load_base = 0x400000;
+/* one PML4E */
+kernel_base = 0xffffff8000000000;
+kernel_load_offset = kernel_base - kernel_load_base;
+kernel_stack_size = 16K;
 
 SECTIONS {
   /* virtual offset is 2 MB */
@@ -26,24 +30,19 @@ SECTIONS {
     *(.boot.bss .boot.bss.*)
   }
 
-  .text : {
+  . = kernel_base;
+
+  .text : AT(ADDR(.text) - kernel_load_offset) ALIGN(0x1000) {
     *(.text .text.*)
   }
-  .rodata : {
+  .rodata : AT(ADDR(.rodata) - kernel_load_offset) ALIGN(0x1000) {
     *(.rodata .rodata.*)
   }
-  .data.rel.ro : {
-    *(.data.rel.ro .data.rel.ro.*)
-  }
-  .data : {
+  .data : AT(ADDR(.data) - kernel_load_offset) ALIGN(0x1000) {
     *(.data .data.*)
   }
-  .bss : {
+  .bss : AT(ADDR(.bss) - kernel_load_offset) ALIGN(0x1000) {
     *(.bss .bss.*)
-  }
-
-  .stack_sizes (INFO) : {
-    KEEP(*(.stack_sizes .stack_sizes.*))
   }
 
   kernel_stack_bottom = .;
