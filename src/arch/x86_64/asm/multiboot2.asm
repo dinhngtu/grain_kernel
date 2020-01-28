@@ -2,8 +2,7 @@ global multiboot2_i386_start
 extern x86_64_start
 extern kernel_stack_top
 
-kernel_load_base equ 0x400000
-kernel_base equ 0xffffff8000000000
+kernel_base equ 0xffffff8000000000  ; starting from pml4[511]
 
 section .boot.text progbits alloc exec nowrite align=16
 bits 32
@@ -29,7 +28,7 @@ multiboot2_i386_start:
     lea edi, [pml4]
     xor eax, eax
     mov ecx, 4096
-    rep stosb ; loop store al to edi while cx <>  0
+    rep stosb ; loop store al to edi while cx <> 0
 
 	; pml4[0] -> pdpt.lo
     lea edi, [pdpt.lo]
@@ -52,22 +51,8 @@ multiboot2_i386_start:
     mov dword [pdpt.lo], 0x183  ; addr=0; P, W, PS, G
 
 .setup_pdpte_hi:
-    lea edi, [pd.hi]
-    or edi, 0x3  ; P, W, S
-    mov [pdpt.hi], edi
-
-.setup_pd:
-    lea edi, [pd]
-    xor eax, eax
-    mov ecx, pd.end-pd
-    rep stosb
-
-.setup_pde_hi:
-    ; map 8 MB starting from kernel_load_base into kernel_base
-    mov dword [pd.hi], 0x400183  ; addr = 0x400000; P, W, PS, G
-    mov dword [pd.hi+8], 0x600183  ; addr = 0x400000; P, W, PS, G
-    mov dword [pd.hi+16], 0x800183  ; addr = 0x400000; P, W, PS, G
-    mov dword [pd.hi+24], 0xa00183  ; addr = 0x400000; P, W, PS, G
+    ; map the same first GB into high address as well
+    mov dword [pdpt.hi], 0x183  ; addr=0; P, W, PS, G
 
 .setup_lm:
     lea edi, [pml4]
@@ -102,9 +87,7 @@ section .boot.text.64 progbits alloc exec nowrite align=16
 bits 64
 mb2_lm_trampoline:
     mov rsp, kernel_stack_top
-    ;add rsp, kernel_base
     mov rbp, rsp
-    ;add eax, kernel_base
     mov edi, [multiboot2_info]
     mov rax, x86_64_start
     jmp rax
@@ -116,10 +99,6 @@ pml4:
 pdpt:
 .lo:
     resb 4096
-.hi:
-    resb 4096
-.end:
-pd:
 .hi:
     resb 4096
 .end:
