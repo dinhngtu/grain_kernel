@@ -1,8 +1,0 @@
-{
-    "rust.unstable_features": true,
-    "rust.build_command": "cargo xcheck --target ./x86_64-grain.json",
-    "files.watcherExclude": {
-        "build/**": true,
-        "target/**": true
-    }
-}
