@@ -2,7 +2,7 @@ global multiboot2_i386_start
 extern x86_64_start
 extern kernel_stack_top
 
-kernel_base equ 0xffffff8000000000  ; starting from pml4[511]
+kernel_base equ 0xffff800000000000
 
 section .boot.text progbits alloc exec nowrite align=16
 bits 32
@@ -35,10 +35,10 @@ multiboot2_i386_start:
     or edi, 0x3  ; P, W, S
     mov [pml4], edi  ; lower 32 bits of entry 0; no need to set up upper bits
 
-    ; pml4[511] -> pdpt.hi
+    ; pml4[256] -> pdpt.hi
     lea edi, [pdpt.hi]
     or edi, 0x3  ; P, W, S
-    mov [pml4+511*8], edi
+    mov [pml4+256*8], edi
 
 .setup_pdpt:
     lea edi, [pdpt]
@@ -50,9 +50,22 @@ multiboot2_i386_start:
     ; identity map first GB
     mov dword [pdpt.lo], 0x183  ; addr=0; P, W, PS, G
 
+    lea edi, [pdpt.hi]
+    xor eax, eax
 .setup_pdpte_hi:
-    ; map the same first GB into high address as well
-    mov dword [pdpt.hi], 0x183  ; addr=0; P, W, PS, G
+    ; loop for mapping physical memory into lowest 512GB of upper half
+    mov edx, eax
+    shl edx, 30  ; address lower bits
+    or edx, 0x183  ; P, W, PS, G
+    mov [edi+eax*8], edx
+
+    mov edx, eax
+    shr edx, 2  ; address upper bits
+    mov [edi+eax*8+4], edx
+
+    inc eax
+    cmp eax, 512
+    jb .setup_pdpte_hi
 
 .setup_lm:
     lea edi, [pml4]

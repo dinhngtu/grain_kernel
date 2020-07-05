@@ -1,13 +1,14 @@
 ENTRY(multiboot2_i386_start)
 
-/* one PML4E */
-kernel_base = 0xffffff8000000000;
+/* first PML4E */
+kernel_base = 0xffff800000000000;
 kernel_stack_size = 16K;
 
 SECTIONS {
   /* virtual offset is 2 MB */
   /* use 2M + SIZEOF_HEADERS combined with ld -n to start linking right
-    * after header so that ld won't waste a whole page on padding */
+   * after header so that ld won't waste a whole page on padding
+   */
   . = 2M + SIZEOF_HEADERS;
 
   /* ensure that the multiboot header comes as early as possible */
