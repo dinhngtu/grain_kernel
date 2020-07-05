@@ -1,7 +1,7 @@
 #![no_std]
 #![feature(asm)]
 #![feature(never_type)]
-#![feature(optin_builtin_traits)]
+#![feature(negative_impls)]
 
 #[macro_use]
 extern crate lazy_static;
