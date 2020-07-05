@@ -6,10 +6,7 @@ pub fn panic(info: &PanicInfo) -> ! {
     writeln!(*COM1.lock(), "Panic: {}", info).unwrap();
     loop {
         unsafe {
-            asm!(r"
-                cli
-                hlt
-                " :::: "intel");
+            asm!("cli", "hlt");
         }
     }
 }

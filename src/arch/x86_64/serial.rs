@@ -2,12 +2,12 @@ use core::fmt::Write;
 use spin;
 
 unsafe fn outb(port: u16, val: u8) {
-    asm!("out dx, al" :: "{al}"(val), "{dx}"(port) :: "intel","volatile");
+    asm!("out dx, al", in("al") val, in("dx") port)
 }
 
 unsafe fn inb(port: u16) -> u8 {
     let mut val: u8;
-    asm!("in al, dx" : "={al}"(val) : "{dx}"(port) :: "intel","volatile");
+    asm!("in al, dx", out("al") val, in("dx") port);
     return val;
 }
 

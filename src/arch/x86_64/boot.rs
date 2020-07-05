@@ -15,7 +15,7 @@ fn memory_type(num: u32) -> &'static str {
 fn print_rip(ptr: *const u8) {
     let mut rip: usize;
     unsafe {
-        asm!("lea $0, [rip+0]" : "=r"(rip) ::: "intel","volatile");
+        asm!("lea {0}, [rip+0]", out(reg) rip);
     }
     writeln!(
         *COM1.lock(),
