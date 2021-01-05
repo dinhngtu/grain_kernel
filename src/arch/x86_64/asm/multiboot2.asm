@@ -1,3 +1,5 @@
+default rel
+
 global multiboot2_i386_start
 extern x86_64_start
 extern kernel_stack_top
@@ -20,7 +22,7 @@ multiboot2_i386_start:
 
     mov eax, 0x80000001
     cpuid
-    test edx, 1 << 29  ; long mode?
+    test edx, 1<<29  ; long mode?
     jz .die
 
 ; paging already disabled
@@ -43,7 +45,7 @@ multiboot2_i386_start:
 .setup_pdpt:
     lea edi, [pdpt]
     xor eax, eax
-    mov ecx, pdpt.end-pdpt
+    lea ecx, [pdpt.end-pdpt]
     rep stosb
 
 .setup_pdpte_lo:
@@ -99,6 +101,7 @@ multiboot2_i386_start:
 section .boot.text.64 progbits alloc exec nowrite align=16
 bits 64
 mb2_lm_trampoline:
+    ; be careful with symbols that live in upper half
     mov rsp, kernel_stack_top
     mov rbp, rsp
     mov edi, [multiboot2_info]
