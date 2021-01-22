@@ -1,4 +1,4 @@
-section .multiboot2
+section .multiboot2 align=8
 
 ;Offset , Type , Field         , Name     , Note
 ;0      , u32i , magic         , required

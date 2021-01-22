@@ -1,7 +1,7 @@
 ENTRY(multiboot2_i386_start)
 
 /* first PML4E */
-kernel_base = 0xffff800000000000;
+kernel_base = 0;
 kernel_stack_size = 16K;
 
 SECTIONS {
@@ -11,12 +11,8 @@ SECTIONS {
    */
   . = 2M + SIZEOF_HEADERS;
 
-  /* ensure that the multiboot header comes as early as possible */
-  .multiboot2 : {
+  .boot.text : ALIGN(0x1000) {
     KEEP(*(.multiboot2))
-  }
-
-  .boot.text : {
     *(.boot.text .boot.text.*)
   }
   .boot.rodata : {
