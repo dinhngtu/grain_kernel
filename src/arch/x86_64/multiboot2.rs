@@ -75,12 +75,18 @@ pub struct MemoryMapEntry {
     pub reserved: u32,
 }
 
+#[repr(C)]
+pub struct BasicMeminfoHeader {
+    pub mem_lower: u32,
+    pub mem_upper: u32,
+}
+
 #[allow(dead_code)]
 pub enum BootInfoTag<'a> {
     Cmdline(&'a str),
-    BootLoaderName,
+    BootLoaderName(&'a str),
     Module,
-    BasicMeminfo,
+    BasicMeminfo(&'a BasicMeminfoHeader),
     Bootdev,
     Mmap(&'a [MemoryMapEntry]),
     Vbe,
@@ -149,6 +155,14 @@ impl<'a> Iterator for BootInfoReader<'a> {
             x if x == BootInfoTagType::Cmdline as u32 => {
                 let cmdline = core::str::from_utf8(tag_data).unwrap();
                 Some(BootInfoTag::Cmdline(cmdline))
+            }
+            x if x == BootInfoTagType::BootLoaderName as u32 => {
+                let blname = core::str::from_utf8(tag_data).unwrap();
+                Some(BootInfoTag::BootLoaderName(blname))
+            }
+            x if x == BootInfoTagType::BasicMeminfo as u32 => {
+                let mi: &BasicMeminfoHeader = unsafe { from_bytes(tag_data).unwrap() };
+                Some(BootInfoTag::BasicMeminfo(mi))
             }
             x if x == BootInfoTagType::Mmap as u32 => {
                 let (mmap_head, maps_raw) = tag_data.split_at(8);

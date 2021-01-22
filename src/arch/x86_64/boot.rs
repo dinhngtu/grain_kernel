@@ -32,6 +32,16 @@ pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
     for tag in BootInfoReader::from(ptr) {
         match tag {
             BootInfoTag::Cmdline(s) => writeln!(*COM1.lock(), "Command line: {}", s).unwrap(),
+            BootInfoTag::BootLoaderName(s) => writeln!(*COM1.lock(), "Bootloader: {}", s).unwrap(),
+            BootInfoTag::BasicMeminfo(mi) => {
+                writeln!(
+                    *COM1.lock(),
+                    "Basic meminfo: min {:#x}, max {:#x}",
+                    mi.mem_lower,
+                    mi.mem_upper
+                )
+                .unwrap();
+            }
             BootInfoTag::Mmap(maps) => {
                 for map in maps {
                     writeln!(
@@ -48,6 +58,7 @@ pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
             BootInfoTag::Unknown => {}
             _ => {}
         };
+        writeln!(*COM1.lock()).unwrap();
     }
 
     crate::start();
