@@ -4,17 +4,17 @@ global multiboot2_i386_start
 extern x86_64_start
 extern kernel_stack_top
 
-kernel_base equ 0xffff800000000000
-serial_port equ 0x3f8
+serial_port equ 0x40a0
 
 section .boot.text progbits alloc exec nowrite align=16
 bits 32
 multiboot2_i386_start:
     cmp eax, 0x36d76289  ; multiboot2 signature
-    jne .die
+    jne .die.real
 
+    test ebx, ebx
+    jz .die.real
     mov [multiboot2_info], ebx  ; save multiboot2 info pointer
-
     lea ebx, [.inita]
     jmp serial.init
 
@@ -57,9 +57,21 @@ multiboot2_i386_start:
     lea ecx, [pdpt.end-pdpt]
     rep stosb
 
+    lea edi, [pdpt.lo]
+    xor eax, eax
 .setup_pdpte_lo:
-    ; identity map first GB
-    mov dword [pdpt.lo], 0x183  ; addr=0; P, W, PS, G
+    mov edx, eax
+    shl edx, 30  ; address lower bits
+    or edx, 0x183  ; P, W, PS, G
+    mov [edi+eax*8], edx
+
+    mov edx, eax
+    shr edx, 2  ; address upper bits
+    mov [edi+eax*8+4], edx
+
+    inc eax
+    cmp eax, 512
+    jb .setup_pdpte_lo
 
     lea edi, [pdpt.hi]
     xor eax, eax
@@ -110,6 +122,10 @@ multiboot2_i386_start:
     jmp gdt64.code:mb2_lm_trampoline
 
 .die:
+    lea ebx, [.die.real]
+    lea esi, [strtbl.die]
+    jmp serial.write
+.die.real:
     lidt [noidt]  ; causes a triple fault
     int 3
 
@@ -187,6 +203,8 @@ strtbl:
     db `hello from bootloader\n\0`
 .ajh:
     db `jumping to x64\n\0`
+.die:
+    db `death\n\0`
 
 ; minimal required gdt for real long mode
 gdt64:

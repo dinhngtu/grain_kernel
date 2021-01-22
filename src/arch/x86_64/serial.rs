@@ -11,7 +11,7 @@ unsafe fn inb(port: u16) -> u8 {
     return val;
 }
 
-const SER0: u16 = 0x3f8;
+const SER0: u16 = 0x40a0;
 
 pub struct SerialPort {
     io_port: u16,
