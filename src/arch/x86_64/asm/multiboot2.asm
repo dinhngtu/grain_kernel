@@ -5,6 +5,7 @@ extern x86_64_start
 extern kernel_stack_top
 
 kernel_base equ 0xffff800000000000
+serial_port equ 0x3f8
 
 section .boot.text progbits alloc exec nowrite align=16
 bits 32
@@ -13,6 +14,14 @@ multiboot2_i386_start:
     jne .die
 
     mov [multiboot2_info], ebx  ; save multiboot2 info pointer
+
+    lea ebx, [.inita]
+    jmp serial.init
+
+.inita:
+    lea ebx, [.check_long_mode]
+    lea esi, [strtbl.hello]
+    jmp serial.write
 
 .check_long_mode:
     mov eax, 0x80000000
@@ -90,6 +99,12 @@ multiboot2_i386_start:
     rdmsr
     test eax, 1<<10  ; EFER.LMA
     jz .die
+
+    lea ebx, [.jump]
+    lea esi, [strtbl.ajh]
+    jmp serial.write
+
+.jump:
     ; set up 64-bit GDT to enable 64-bit mode
     lgdt [gdt64.ptr]
     jmp gdt64.code:mb2_lm_trampoline
@@ -97,6 +112,47 @@ multiboot2_i386_start:
 .die:
     lidt [noidt]  ; causes a triple fault
     int 3
+
+serial:
+.init:
+    mov dx, serial_port+3
+    mov al, 0x03
+    out dx, al
+    mov dx, serial_port+1
+    xor eax, eax
+    out dx, al
+    mov dx, serial_port+2
+    out dx, al
+    mov al, 0x03
+    mov dx, serial_port+4
+    out dx, al
+    jmp ebx
+
+; esi: string pointer
+.write:
+    mov cl, byte [esi]
+    test cl, cl
+    jnz .writea
+    jmp ebx
+.writea:
+    ; wait to write
+    mov dx, serial_port+5
+    in al, dx
+    test al, 0x20
+    jz .writea
+    ; write
+    mov dx, serial_port
+    mov al, cl
+    out dx, al
+.writec:
+    ; wait for write
+    mov dx, serial_port+5
+    in al, dx
+    test al, 0x40
+    jz .writec
+    ; loop
+    inc esi
+    jmp .write
 
 section .boot.text.64 progbits alloc exec nowrite align=16
 bits 64
@@ -125,6 +181,12 @@ section .boot.rodata progbits alloc noexec nowrite align=4
 noidt:
     dw 0
     dd 0
+
+strtbl:
+.hello:
+    db `hello from bootloader\n\0`
+.ajh:
+    db `jumping to x64\n\0`
 
 ; minimal required gdt for real long mode
 gdt64:

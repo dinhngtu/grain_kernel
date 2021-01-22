@@ -19,13 +19,11 @@ pub struct SerialPort {
 
 impl SerialPort {
     pub unsafe fn init(port: u16) -> Self {
-        outb(port + 1, 0x00);
-        outb(port + 3, 0x80);
-        outb(port + 0, 0x03);
-        outb(port + 1, 0x00);
-        outb(port + 3, 0x03);
-        outb(port + 2, 0xC7);
-        outb(port + 4, 0x0B);
+        //outb(port + 3, 0x03);
+        //outb(port + 1, 0x00);
+        //outb(port + 2, 0x00);
+        //outb(port + 4, 0x03);
+
         SerialPort { io_port: port }
     }
 }
@@ -36,6 +34,7 @@ impl Write for SerialPort {
             unsafe {
                 while inb(self.io_port + 5) & 0x20 == 0 {}
                 outb(self.io_port, *c);
+                while inb(self.io_port + 5) & 0x40 == 0 {}
             }
         }
 
