@@ -1,4 +1,5 @@
 arch ?= x86_64
+kernel_dbg := build/kernel-$(arch).dbg
 kernel := build/kernel-$(arch).bin
 iso := build/os-$(arch).iso
 
@@ -8,17 +9,18 @@ assembly_source_files := $(wildcard src/arch/$(arch)/asm/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/asm/%.asm, \
     build/arch/$(arch)/%.o, $(assembly_source_files))
 
-QEMU ?= qemu-system-x86_64
+target ?= $(arch)-grain
+rust_os := target/$(target)/debug/libgrain_kernel.a
+
 ifeq ($(DEBUG), 1)
 	QEMU_FLAGS += -S -gdb tcp::9000
 endif
 
-target ?= $(arch)-grain
-rust_os := target/$(target)/debug/libgrain_kernel.a
-
 .PHONY: all clean run run-wsl iso kernel
 
 all: $(iso)
+
+include src/arch/$(arch)/Makefile.inc
 
 clean:
 	rm -rf build
@@ -27,9 +29,13 @@ clean:
 run: $(iso)
 	$(QEMU) -cdrom $(iso) -nographic $(QEMU_FLAGS)
 
-run-wsl: QEMU="/mnt/c/Program Files/qemu/qemu-system-x86_64.exe"
 run-wsl: $(iso)
-	$(QEMU) -accel whpx -cdrom $(iso) -nographic $(QEMU_FLAGS)
+	$(QEMU) -machine q35,accel=whpx -cdrom $(iso) -nographic $(QEMU_FLAGS)
+
+$(kernel_dbg): cargo $(rust_os) $(assembly_object_files) $(linker_script)
+	ld --gc-sections -T $(linker_script) -o $(kernel_dbg) $(assembly_object_files) $(rust_os)
+
+kernel: $(kernel)
 
 iso: $(iso)
 
@@ -39,11 +45,6 @@ $(iso): $(kernel)
 	cp $(kernel) build/isofiles/boot/
 	cp $(grub_cfg) build/isofiles/boot/grub
 	grub-mkrescue -o $(iso) build/isofiles
-
-kernel: $(kernel)
-
-$(kernel): cargo $(rust_os) $(assembly_object_files) $(linker_script)
-	ld -n --gc-sections -T $(linker_script) -o $(kernel) $(assembly_object_files) $(rust_os)
 
 cargo:
 	cargo xbuild --target ./$(target).json
