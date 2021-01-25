@@ -4,88 +4,19 @@ use core::convert::From;
 use core::fmt::Write;
 use core::mem::size_of;
 
-#[derive(Copy, Clone, PartialEq)]
-#[repr(u32)]
-#[allow(dead_code)]
-#[non_exhaustive]
-enum BootInfoTagType {
-    End = 0,
-    Cmdline,
-    BootLoaderName,
-    Module,
-    BasicMeminfo,
-    Bootdev,
-    Mmap,
-    Vbe,
-    Framebuffer,
-    ElfSections,
-    Apm,
-    Efi32,
-    Efi64,
-    Smbios,
-    AcpiOld,
-    AcpiNew,
-    Network,
-    EfiMmap,
-    EfiBs,
-    Efi32Ih,
-    Efi64Ih,
-    LoadBaseAddr,
-}
+use super::mbi::*;
 
-#[repr(C)]
-struct BootInfoHeader {
-    total_size: u32,
-    _reserved: u32,
-}
-
-#[repr(C)]
-struct BootInfoTagHeader {
-    tag_type: u32,
-    size: u32,
-}
-
-pub struct BootInfoReader<'a> {
-    buffer: &'a [u8],
-    offset: usize,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-#[repr(u32)]
-#[allow(dead_code)]
-#[non_exhaustive]
-pub enum MemoryMapType {
-    RAM = 1,
-    ACPI = 3,
-    HibernationReserved = 4,
-    BadMemory = 5,
-}
-
-#[repr(C)]
-struct MemoryMapHeader {
-    entry_size: u32,
-    entry_version: u32,
-}
-
-#[repr(C)]
-pub struct MemoryMapEntry {
-    pub base_addr: u64,
-    pub length: u64,
-    pub map_type: u32,
-    pub reserved: u32,
-}
-
-#[repr(C)]
-pub struct BasicMeminfoHeader {
-    pub mem_lower: u32,
-    pub mem_upper: u32,
+pub struct ModuleInfo<'a> {
+    pub mod_start: u32,
+    pub mod_end: u32,
+    pub string: &'a str,
 }
 
 #[allow(dead_code)]
 pub enum BootInfoTag<'a> {
     Cmdline(&'a str),
     BootLoaderName(&'a str),
-    Module,
+    Module(ModuleInfo<'a>),
     BasicMeminfo(&'a BasicMeminfoHeader),
     Bootdev,
     Mmap(&'a [MemoryMapEntry]),
@@ -107,7 +38,10 @@ pub enum BootInfoTag<'a> {
     Unknown,
 }
 
-const MBI2_TAG_ALIGN: usize = 8;
+pub struct BootInfoReader<'a> {
+    buffer: &'a [u8],
+    offset: usize,
+}
 
 impl<'a> From<*const u8> for BootInfoReader<'a> {
     fn from(ptr: *const u8) -> BootInfoReader<'a> {
@@ -164,8 +98,19 @@ impl<'a> Iterator for BootInfoReader<'a> {
                 let mi: &BasicMeminfoHeader = unsafe { from_bytes(tag_data).unwrap() };
                 Some(BootInfoTag::BasicMeminfo(mi))
             }
+            x if x == BootInfoTagType::Module as u32 => {
+                let (mod_head, mod_cmd) = tag_data.split_at(size_of::<ModuleHeader>());
+                let mh: &ModuleHeader = unsafe { from_bytes(mod_head).unwrap() };
+                let mcmd = core::str::from_utf8(mod_cmd).unwrap();
+                let mi: ModuleInfo = ModuleInfo {
+                    mod_start: mh.mod_start,
+                    mod_end: mh.mod_end,
+                    string: mcmd,
+                };
+                Some(BootInfoTag::Module(mi))
+            }
             x if x == BootInfoTagType::Mmap as u32 => {
-                let (mmap_head, maps_raw) = tag_data.split_at(8);
+                let (mmap_head, maps_raw) = tag_data.split_at(size_of::<MemoryMapHeader>());
                 let mmap_base: &MemoryMapHeader = unsafe { from_bytes(mmap_head).unwrap() };
                 writeln!(
                     *COM1.lock(),

@@ -1,6 +1,8 @@
-use crate::arch::multiboot2::*;
+use crate::arch::mbi::*;
 use crate::arch::serial::COM1;
-use core::fmt::Write;
+use core::{fmt::Write, writeln};
+
+use super::multiboot2::{BootInfoReader, BootInfoTag};
 
 fn memory_type(num: u32) -> &'static str {
     match num {
@@ -39,6 +41,16 @@ pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
                     "Basic meminfo: min {:#x}, max {:#x}",
                     mi.mem_lower,
                     mi.mem_upper
+                )
+                .unwrap();
+            }
+            BootInfoTag::Module(mi) => {
+                writeln!(
+                    *COM1.lock(),
+                    "module from {:#x} to {:#x}: {}",
+                    mi.mod_start,
+                    mi.mod_end,
+                    mi.string
                 )
                 .unwrap();
             }
