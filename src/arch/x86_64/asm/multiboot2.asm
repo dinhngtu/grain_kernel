@@ -4,7 +4,7 @@ global multiboot2_i386_start
 extern x86_64_start
 extern kernel_stack_top
 
-serial_port equ 0x40a0
+serial_base equ 0x3f8
 
 section .boot.text progbits alloc exec nowrite align=16
 bits 32
@@ -15,13 +15,15 @@ multiboot2_i386_start:
     test ebx, ebx
     jz .die.real
     mov [multiboot2_info], ebx  ; save multiboot2 info pointer
-    lea ebx, [.inita]
-    jmp serial.init
 
-.inita:
-    lea ebx, [.check_long_mode]
-    lea esi, [strtbl.hello]
-    jmp serial.write
+    mov esp, early_stack.top
+    mov ebp, esp
+
+    call serial_init
+
+    lea eax, [strtbl.hello]
+    push eax
+    call serial_write
 
 .check_long_mode:
     mov eax, 0x80000000
@@ -112,9 +114,9 @@ multiboot2_i386_start:
     test eax, 1<<10  ; EFER.LMA
     jz .die
 
-    lea ebx, [.jump]
-    lea esi, [strtbl.ajh]
-    jmp serial.write
+    lea eax, [strtbl.j64]
+    push eax
+    call serial_write
 
 .jump:
     ; set up 64-bit GDT to enable 64-bit mode
@@ -122,53 +124,62 @@ multiboot2_i386_start:
     jmp gdt64.code:mb2_lm_trampoline
 
 .die:
-    lea ebx, [.die.real]
-    lea esi, [strtbl.die]
-    jmp serial.write
+    lea eax, [strtbl.die]
+    push eax
+    call serial_write
 .die.real:
     lidt [noidt]  ; causes a triple fault
     int 3
 
-serial:
-.init:
-    mov dx, serial_port+3
-    mov al, 0x03
+serial_init:
+    push ebp
+    mov ebp, esp
+    mov dx, serial_base+3  ; LCR
+    mov al, 0x03  ; 8 data bits
     out dx, al
-    mov dx, serial_port+1
-    xor eax, eax
+    mov dx, serial_base+1  ; IER
+    xor eax, eax  ; no intr
     out dx, al
-    mov dx, serial_port+2
+    mov dx, serial_base+2  ; FCR
+    out dx, al  ; no fifo
+    mov dx, serial_base+4  ; MCR
+    mov al, 0x03  ; dtr/rts
     out dx, al
-    mov al, 0x03
-    mov dx, serial_port+4
-    out dx, al
-    jmp ebx
+    pop ebp
+    ret
 
 ; esi: string pointer
-.write:
+serial_write:
+    push ebp
+    mov ebp, esp
+    push esi
+    mov esi, [ebp+8]
+.nextb:
     mov cl, byte [esi]
     test cl, cl
-    jnz .writea
-    jmp ebx
-.writea:
+    jnz .0
+    pop esi
+    pop ebp
+    ret
+.0:
     ; wait to write
-    mov dx, serial_port+5
+    mov dx, serial_base+5
     in al, dx
     test al, 0x20
-    jz .writea
+    jz .0
     ; write
-    mov dx, serial_port
+    mov dx, serial_base
     mov al, cl
     out dx, al
-.writec:
+.1:
     ; wait for write
-    mov dx, serial_port+5
+    mov dx, serial_base+5
     in al, dx
     test al, 0x40
-    jz .writec
+    jz .1
     ; loop
     inc esi
-    jmp .write
+    jmp .nextb
 
 section .boot.text.64 progbits alloc exec nowrite align=16
 bits 64
@@ -178,9 +189,20 @@ mb2_lm_trampoline:
     mov rbp, rsp
     mov edi, [multiboot2_info]
     mov rax, x86_64_start
-    jmp rax
+    call rax
+    jmp .die
 
-section .boot.bss nobits alloc noexec write align=4
+.die:
+    lidt [noidt]  ; causes a triple fault
+    int 3
+
+section .boot.bss nobits alloc noexec write align=16
+early_stack:
+.bottom:
+    resb 3072
+.top:
+multiboot2_info:
+    resq 1
 alignb 4096
 pml4:
     resb 4096
@@ -190,8 +212,6 @@ pdpt:
 .hi:
     resb 4096
 .end:
-multiboot2_info:
-    resq 1
 
 section .boot.rodata progbits alloc noexec nowrite align=4
 noidt:
@@ -201,10 +221,10 @@ noidt:
 strtbl:
 .hello:
     db `hello from bootloader\n\0`
-.ajh:
+.j64:
     db `jumping to x64\n\0`
 .die:
-    db `death\n\0`
+    db `died in bootloader\n\0`
 
 ; minimal required gdt for real long mode
 gdt64:
