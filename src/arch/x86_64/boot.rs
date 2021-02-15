@@ -7,7 +7,7 @@ use core::fmt::Write;
 use core::slice::from_raw_parts;
 use core::writeln;
 
-const KERNEL_BASE: usize = 0;
+const KERNEL_BASE: usize = 0xffff800000000000;
 
 fn memory_type(num: u32) -> &'static str {
     match num {

@@ -1,7 +1,7 @@
 ENTRY(multiboot2_i386_start)
 
 /* first PML4E */
-kernel_base = 0;
+kernel_base = 0xffff800000000000;
 kernel_stack_size = 16K;
 
 SECTIONS {
