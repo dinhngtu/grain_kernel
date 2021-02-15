@@ -1,8 +1,11 @@
-use crate::arch::{mbi::*, x86::elf32::SHT_STRTAB};
-use crate::{arch::serial::COM1, util::str_from_cstr};
-use core::{fmt::Write, slice::from_raw_parts, writeln};
-
-use super::multiboot2::{BootInfoReader, BootInfoTag};
+use crate::arch::mbi::*;
+use crate::arch::multiboot2::{BootInfoReader, BootInfoTag};
+use crate::arch::serial::COM1;
+use crate::arch::x86::elf32::*;
+use crate::util::str_from_cstr;
+use core::fmt::Write;
+use core::slice::from_raw_parts;
+use core::writeln;
 
 const KERNEL_BASE: usize = 0;
 
