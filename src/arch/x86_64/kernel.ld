@@ -15,13 +15,13 @@ SECTIONS {
     KEEP(*(.multiboot2))
     *(.boot.text .boot.text.*)
   }
-  .boot.rodata : {
+  .boot.rodata : ALIGN(0x1000) {
     *(.boot.rodata .boot.rodata.*)
   }
-  .boot.data : {
+  .boot.data : ALIGN(0x1000) {
     *(.boot.data .boot.data.*)
   }
-  .boot.bss : {
+  .boot.bss : ALIGN(0x1000) {
     *(.boot.bss .boot.bss.*)
   }
 

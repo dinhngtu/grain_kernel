@@ -1,8 +1,10 @@
-use crate::arch::mbi::*;
-use crate::arch::serial::COM1;
-use core::{fmt::Write, writeln};
+use crate::arch::{mbi::*, x86::elf32::SHT_STRTAB};
+use crate::{arch::serial::COM1, util::str_from_cstr};
+use core::{fmt::Write, slice::from_raw_parts, writeln};
 
 use super::multiboot2::{BootInfoReader, BootInfoTag};
+
+const KERNEL_BASE: usize = 0;
 
 fn memory_type(num: u32) -> &'static str {
     match num {
@@ -65,6 +67,20 @@ pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
                         memory_type(map.map_type)
                     )
                     .unwrap();
+                }
+            }
+            BootInfoTag::ElfSections(sih, sections) => {
+                let strtab = sections.get(sih.shndx as usize).unwrap();
+                assert_eq!(strtab.sh_type, SHT_STRTAB);
+                let strbuf: &[u8] = unsafe {
+                    from_raw_parts(
+                        (KERNEL_BASE + strtab.sh_addr as usize) as *const u8,
+                        strtab.sh_size as usize,
+                    )
+                };
+                for sect in sections {
+                    let sectname = str_from_cstr(strbuf, sect.sh_name as usize);
+                    writeln!(*COM1.lock(), "Section {}", sectname.unwrap_or("")).unwrap();
                 }
             }
             BootInfoTag::Unknown => {}

@@ -1,6 +1,5 @@
 #[derive(Copy, Clone, PartialEq)]
 #[repr(u32)]
-#[allow(dead_code)]
 #[non_exhaustive]
 pub enum BootInfoTagType {
     End = 0,
@@ -41,7 +40,6 @@ pub struct BootInfoTagHeader {
 
 #[derive(Copy, Clone, PartialEq)]
 #[repr(u32)]
-#[allow(dead_code)]
 #[non_exhaustive]
 pub enum MemoryMapType {
     RAM = 1,
@@ -74,6 +72,14 @@ pub struct BasicMeminfoHeader {
 pub struct ModuleHeader {
     pub mod_start: u32,
     pub mod_end: u32,
+}
+
+// multiboot_tag_elf_sections definition in MB2 documentation is actually incorrect
+#[repr(C)]
+pub struct ElfSymbolInfoHeader {
+    pub num: u32,
+    pub entsize: u32,
+    pub shndx: u32,
 }
 
 pub const MBI2_TAG_ALIGN: usize = 8;

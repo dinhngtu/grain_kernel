@@ -1,4 +1,5 @@
 use crate::arch::serial::COM1;
+use crate::arch::x86::elf32::*;
 use crate::util::*;
 use core::convert::From;
 use core::fmt::Write;
@@ -22,7 +23,7 @@ pub enum BootInfoTag<'a> {
     Mmap(&'a [MemoryMapEntry]),
     Vbe,
     Framebuffer,
-    ElfSections,
+    ElfSections(&'a ElfSymbolInfoHeader, &'a [ElfSectionHeader]),
     Apm,
     Efi32,
     Efi64,
@@ -119,11 +120,26 @@ impl<'a> Iterator for BootInfoReader<'a> {
                     mmap_base.entry_version
                 )
                 .unwrap();
-                assert_eq!(mmap_base.entry_size, 24);
+                assert_eq!(mmap_base.entry_size as usize, size_of::<MemoryMapEntry>());
                 assert_eq!(mmap_base.entry_version, 0);
                 assert_eq!(maps_raw.len() % (mmap_base.entry_size as usize), 0);
                 let maps: &[MemoryMapEntry] = unsafe { slice_from_bytes(maps_raw).unwrap() };
                 Some(BootInfoTag::Mmap(maps))
+            }
+            x if x == BootInfoTagType::ElfSections as u32 => {
+                let (si_head, sect_raw) = tag_data.split_at(size_of::<ElfSymbolInfoHeader>());
+                let sih: &ElfSymbolInfoHeader = unsafe { from_bytes(si_head).unwrap() };
+                writeln!(
+                    *COM1.lock(),
+                    "ELF sections info: num {} entsize {} shndx {}",
+                    sih.num,
+                    sih.entsize,
+                    sih.shndx
+                )
+                .unwrap();
+                assert_eq!(sih.entsize as usize, size_of::<ElfSectionHeader>());
+                let sections: &[ElfSectionHeader] = unsafe { slice_from_bytes(sect_raw).unwrap() };
+                Some(BootInfoTag::ElfSections(sih, sections))
             }
             x if x == BootInfoTagType::End as u32 => None,
             _ => Some(BootInfoTag::Unknown),
