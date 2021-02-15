@@ -83,7 +83,16 @@ pub extern "sysv64" fn x86_64_start(ptr: *const u8) -> ! {
                 };
                 for sect in sections {
                     let sectname = str_from_cstr(strbuf, sect.sh_name as usize);
-                    writeln!(*COM1.lock(), "Section {}", sectname.unwrap_or("")).unwrap();
+                    writeln!(
+                        *COM1.lock(),
+                        "Section {} at {:#x} offset {:#x} size {:#x} align {:#x}",
+                        sectname.unwrap_or(""),
+                        sect.sh_addr,
+                        sect.sh_offset,
+                        sect.sh_size,
+                        sect.sh_addralign
+                    )
+                    .unwrap();
                 }
             }
             BootInfoTag::Unknown => {}

@@ -10,10 +10,6 @@ mod arch;
 mod panic;
 mod util;
 
-use crate::arch::serial::COM1;
-use core::fmt::Write;
-
 pub fn start() -> ! {
-    writeln!(*COM1.lock(), "hello world").unwrap();
     panic!("nothing to do, dying");
 }
